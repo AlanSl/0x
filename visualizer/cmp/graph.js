@@ -18,12 +18,9 @@ function includesWindowsSeperator (name) {
 }
 
 function isInternalPath (name) {
-  // Looking for names like '~someFunction internal/bootstrap/node.js:1:2
-  // Windows internal Node paths also use / as the seperator in their names
-  if (!/ internal\//.test(name)) return false
-
-  // Must also check this isn't some local directory that contains ' internal'
-  return !/ \//.test(name) && !includesWindowsSeperator(name)
+  // Match like `~someFunction internal/bootstrap/node.js:1:2`
+  // not like `~someFunction /some internal/path to/file.js:1:2`, windows or posix
+  return /^[^/\\]* internal[/\\]/.test(name)
 }
 
 function v8cats (child) {
@@ -36,15 +33,19 @@ function v8cats (child) {
 
   if (/\[INIT]$/.test(name)) return { type: 'init' }
   if (/\[INLINABLE]$/.test(name)) return { type: 'inlinable' }
-  if (/\[CODE:.*?]$/.test(name) || /v8::internal::.*\[CPP]$/.test(name)) return { type: 'v8' }
+  if (/\[CODE:[^\]]*]$/.test(name) || /v8::internal::.*\[CPP]$/.test(name)) return { type: 'v8' }
   if (/\[CPP]$/.test(name) || /\[SHARED_LIB]$/.test(name)) return { type: 'cpp' }
 
-  // Folder names can also contain '.js' or '.mjs' (e.g. projects/node.js/some-app), so check position
+  // Match like `~someFunction /some/path to/file.js:1:2`
+  // not like `C:\\Program Files\node.js\node.exe`
   if (!/\.m?js:\d+:\d+?$/.test(name)) {
     return (/\.$/.test(name)) ? { type: 'core' } : { type: 'v8' }
   }
 
-  if (/ native /.test(name)) return { type: 'native' }
+  // Match like `~someFunction native /some/path to/file.js:1:2`
+  // not like `someFunction /some native path/to/file.js:1:2`, windows or posix
+  if (/^[^/\\]* native /.test(name)) return { type: 'native' }
+
   if (!includesPathSeperator(name) || isInternalPath(name)) return { type: 'core' }
   if (/\/node_modules\//.test(name) || /\\node_modules\\/.test(name)) return { type: 'deps' }
 
