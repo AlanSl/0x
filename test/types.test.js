@@ -1,11 +1,42 @@
 const { test } = require('tap')
 const { resolve } = require('path')
-
-const edgeCases = require('./util/type-edge-cases.js')
+const fs = require('fs')
 const render = require('nanohtml')
-const { v8cats } = require('../visualizer/cmp/graph.js')(render)
 const ticksToTree = require('../lib/ticks-to-tree.js')
+const { v8cats } = require('../visualizer/cmp/graph.js')(render)
 const zeroX = require('../')
+
+const {
+  init1,
+  init2,
+  cpp1,
+  cpp2,
+  v81,
+  v82,
+  regexp1,
+  regexp2,
+  native1,
+  native2,
+  core1,
+  core2,
+  deps1,
+  deps2,
+  app1,
+  app2,
+  inlinable
+} = require('./util/type-simple-cases.js')
+
+const {
+  regexWindows,
+  sharedLibUnix,
+  sharedLibWindows,
+  depsEsmWindows,
+  depsCommonUnix,
+  appUnix,
+  appWindows
+} = require('./util/type-edge-cases.js')
+
+const { ridiculousValidMethodName } = require('./util/ensure-eval-safe.js')
 
 function getType (frame, inlined) {
   const processedFrame = Object.assign({}, frame, { name: getProcessedName(frame, inlined) })
@@ -37,24 +68,6 @@ function getProcessedName (frame, inlined) {
     return tree.unmerged.children[0].name
   }
 }
-
-const init1 = { name: 'NativeModule.compile internal/bootstrap/loaders.js:236:44', type: 'JS' }
-const init2 = { name: 'bootstrapNodeJSCore internal/bootstrap/node.js:12:24', type: 'JS' }
-const cpp1 = { name: '/usr/bin/node', type: 'SHARED_LIB' }
-const cpp2 =  { name: 'C:\\Program Files\\nodejs\\node.exe', type: 'SHARED_LIB' }
-const v81 = { name: 'v8::internal::Runtime_CompileLazy(int, v8::internal::Object**, v8::internal::Isolate*)', type: 'CPP' }
-const v82 = { name: 'Call_ReceiverIsNotNullOrUndefined', type: 'CODE', kind: 'BuiltIn' }
-const regexp1 = { name: '[\u0000zA-Z\u0000#$%&\'*+.|~]+$', type: 'CODE', kind: 'RegExp' }
-const regexp2 = { name: '; *([!#$%&\'*+.^_`|~0-9A-Za-z-]+) *= *("(?:[ !#-[]-~-ÿ]|00b -ÿ])*"|[!#$%&\'*+.^_`|~0-9A-Za-z-]+) *', type: 'CODE', kind: 'RegExp' }
-const native1 = { name: 'InnerArraySort native array.js:486:24', type: 'JS' }
-const native2 = { name: '(anonymous) :486:24', type: 'JS' }
-const core1 = { name: 'validatePath internal/fs/utils.js:442:22', type: 'JS' }
-const core2 = { name: 'nullCheck internal/fs/utils.js:188:19', type: 'JS' }
-const deps1 = { name: 'run /root/0x/examples/rest-api/node_modules/restify/lib/server.js:807:38', type: 'JS' }
-const deps2 = { name: 'next C:\\Users\\Name With Spaces\\Documents\\app\\node_modules\\express\\lib\\router\\index.js:176:16', type: 'JS' }
-const app1 = { name: '(anonymous) /root/0x/examples/rest-api/etag.js:1:11', type: 'JS' }
-const app2 = { name: 'app.get C:\\Documents And Settings\\node-clinic-flame-demo\\1-server-with-slow-function.js:8:14', type: 'JS'  }
-const inlinable = { name: 'getMediaTypePriority /root/0x/examples/rest-api/node_modules/negotiator/lib/mediaType.js:99:30', type: 'JS', kind: 'Unopt' }
 
 test('Test typical examples - backend name transformation', function (t) {
   t.equal(getProcessedName(init1), init1.name + ' [INIT]')
@@ -101,28 +114,57 @@ test('Test typical examples - frontend name parsing', function (t) {
 })
 
 test('Test awkward edge cases', function (t) {
-  t.equal(getType({ name: edgeCases.appUnix }), 'app')
-  t.equal(getType({ name: edgeCases.appWindows }), 'app')
-  t.equal(getType({ name: edgeCases.depsEsmWindows }), 'deps')
-  t.equal(getType({ name: edgeCases.depsCommonUnix }), 'deps')
-  t.equal(getType({ name: edgeCases.sharedLibUnix, type: 'SHARED_LIB' }), 'cpp')
-  t.equal(getType({ name: edgeCases.sharedLibWindows, type: 'SHARED_LIB' }), 'cpp')
-  t.equal(getType({ name: edgeCases.regexWindows, type: 'CODE', kind: 'RegExp'}), 'regexp')
+  t.equal(getType({ name: appUnix, type: 'JS' }), 'app')
+  t.equal(getType({ name: appWindows, type: 'JS' }), 'app')
+  t.equal(getType({ name: depsEsmWindows, type: 'JS' }), 'deps')
+  t.equal(getType({ name: depsCommonUnix, type: 'JS' }), 'deps')
+  t.equal(getType({ name: sharedLibUnix, type: 'SHARED_LIB' }), 'cpp')
+  t.equal(getType({ name: sharedLibWindows, type: 'SHARED_LIB' }), 'cpp')
+  t.equal(getType({ name: regexWindows, type: 'CODE', kind: 'RegExp' }), 'regexp')
 
   t.end()
 })
 
-return
+function cleanup (err, dir) {
+  fs.rmdirSync(dir)
+  if (err) throw err
+}
 
 zeroX({
   argv: [ resolve(__dirname, './fixture/do-eval.js') ],
   workingDir: resolve('./')
 }).catch(console.error).then(htmlFile => {
-  test('ensure HTML is created', () => {
-
+  test('Ensure HTML is created', function (t) {
+    t.ok(htmlFile.includes('flamegraph.html'))
+    t.ok(fs.existsSync(htmlFile))
+    t.ok(fs.statSync(htmlFile).size > 10000)
+    t.end()
   })
 
-  test('unit test filters using names from json', () => {
+  test('Test filters using real names from json', function (t) {
+    const dir = htmlFile.replace('flamegraph.html', '')
 
+    const jsonFile = fs.readdirSync(dir).find(name => name.match(/\.filtered\.json$/))
+    fs.readFile(jsonFile, function (err, content) {
+      if (err) cleanup(err, dir)
+
+      const jsonArray = JSON.parse(content).code
+
+      const appFromOutput = jsonArray(item => item.name.match(/^.appFunction/))
+      t.ok(appFromOutput)
+      t.equal(getType(appFromOutput), 'app')
+
+      const depFromOutput = jsonArray(item => item.name.match(/node_modules[/\\]debounce/))
+      t.ok(depFromOutput)
+      t.equal(getType(appFromOutput), 'dep')
+
+      const regexFromOutput = jsonArray(item => item.name.includes(regexWindows))
+      t.ok(regexFromOutput)
+      t.equal(getType(regexFromOutput), 'regexp')
+
+      const evalFromOutput = jsonArray(item => item.name.includes(ridiculousValidMethodName))
+      t.ok(evalFromOutput)
+      t.equal(getType(evalFromOutput), 'native')
+    })
   })
 })
