@@ -15,7 +15,9 @@ const {
 const debounce = require('debounce')
 
 function appOuterFunc () {
-  const reps = 5000
+  // Long enough for consistent output,
+  // not so long test is slow or may time out
+  const reps = 300
 
   // Make the regex work hard so it definitely appears in the output
   const regexStringTarget = `${allTags} ${regexWindows} ${stringPosix}`.repeat(reps)
@@ -27,12 +29,7 @@ function appOuterFunc () {
         return ${evalSafeString(regexStringTarget)}.replace(regex, ${evalSafeString(stringPosix)})
       }
     }
-
-    function appInnerFunc () {
-      return obj[${evalSafeString(ridiculousValidMethodName)}]()
-    }
-
-    appInnerFunc()
+    obj[${evalSafeString(ridiculousValidMethodName)}]()
   `
 
   function doEval (evalCode) {
