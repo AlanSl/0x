@@ -43,10 +43,7 @@ const appUnix = '//unc_server/unc_share-bob/current_projects-bob/node_modules-bo
 const regexWindows = `/${depsEsmWindows} ${sharedLibWindows} ${appWindows} ${allTags}/g`
 const stringPosix = `${depsCommonUnix} ${sharedLibUnix} ${appUnix} ${allTags}`
 
-// For use when inserting the above as strings into parsed or evalled strings
-function insertAsString (str) {
-  return `"${str.replace(/\\/g, '\\\\')}"`
-}
+const ridiculousValidMethodName = `/Do ( ${stringPosix} ${depsEsmWindows} ${sharedLibWindows} )/`
 
 module.exports = {
   allTags,
@@ -58,5 +55,5 @@ module.exports = {
   depsCommonUnix,
   appUnix,
   appWindows,
-  insertAsString
+  ridiculousValidMethodName
 }

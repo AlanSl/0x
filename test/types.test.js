@@ -1,7 +1,10 @@
 const { test } = require('tap')
 const { resolve } = require('path')
 const fs = require('fs')
+const path = require('path')
+const { promisify } = require('util')
 const render = require('nanohtml')
+const rimraf = require('rimraf')
 const ticksToTree = require('../lib/ticks-to-tree.js')
 const { v8cats } = require('../visualizer/cmp/graph.js')(render)
 const zeroX = require('../')
@@ -35,8 +38,6 @@ const {
   appUnix,
   appWindows
 } = require('./util/type-edge-cases.js')
-
-const { ridiculousValidMethodName } = require('./util/ensure-eval-safe.js')
 
 function getType (frame, inlined) {
   const processedFrame = Object.assign({}, frame, { name: getProcessedName(frame, inlined) })
@@ -78,14 +79,14 @@ test('Test typical examples - backend name transformation', function (t) {
   t.equal(getProcessedName(v82), v82.name + ' [CODE:BuiltIn]')
   t.equal(getProcessedName(regexp1), regexp1.name + ' [CODE:RegExp]')
   t.equal(getProcessedName(regexp2), regexp2.name + ' [CODE:RegExp]')
-  t.equal(getProcessedName(native1), native1.name)
-  t.equal(getProcessedName(native2), '(anonymous) [eval]:486:24')
-  t.equal(getProcessedName(core1), core1.name)
-  t.equal(getProcessedName(core2), core2.name)
-  t.equal(getProcessedName(deps1), deps1.name)
-  t.equal(getProcessedName(deps2), deps2.name)
-  t.equal(getProcessedName(app1), app1.name)
-  t.equal(getProcessedName(app2), app2.name)
+  t.equal(getProcessedName(native1), '~' + native1.name)
+  t.equal(getProcessedName(native2), '*(anonymous) [eval]:486:24')
+  t.equal(getProcessedName(core1), '*' + core1.name)
+  t.equal(getProcessedName(core2), '~' + core2.name)
+  t.equal(getProcessedName(deps1), '*' + deps1.name)
+  t.equal(getProcessedName(deps2), '~' + deps2.name)
+  t.equal(getProcessedName(app1), '~' + app1.name)
+  t.equal(getProcessedName(app2), '*' + app2.name)
   t.equal(getProcessedName(inlinable, true), '~' + inlinable.name + ' [INLINABLE]')
 
   t.end()
@@ -125,46 +126,76 @@ test('Test awkward edge cases', function (t) {
   t.end()
 })
 
-function cleanup (err, dir) {
-  fs.rmdirSync(dir)
-  if (err) throw err
-}
+test('Generate profile and test its output', function (outerTest) {
+  const readFile = promisify(fs.readFile)
+  let dir
+  zeroX({
+    argv: [ resolve(__dirname, './fixture/do-eval.js') ],
+    workingDir: resolve('./')
+  }).catch(onError)
+    .then(testZeroXOutput, onError)
+    .then(readFile, onError)
+    .then(testJsonContents, onError)
+    .then(cleanup, onError)
+    .then(outerTest.end, onError)
 
-zeroX({
-  argv: [ resolve(__dirname, './fixture/do-eval.js') ],
-  workingDir: resolve('./')
-}).catch(console.error).then(htmlFile => {
-  test('Ensure HTML is created', function (t) {
-    t.ok(htmlFile.includes('flamegraph.html'))
-    t.ok(fs.existsSync(htmlFile))
-    t.ok(fs.statSync(htmlFile).size > 10000)
-    t.end()
-  })
+  function onError (err) {
+    cleanup()
+    throw err
+  }
 
-  test('Test filters using real names from json', function (t) {
-    const dir = htmlFile.replace('flamegraph.html', '')
+  function testZeroXOutput (htmlLink) {
+    let jsonFile
+    outerTest.test('Test 0x output exists as expected', function (t) {
+      const htmlFile = htmlLink.replace(/^file:\/\//, '')
+      dir = htmlFile.replace('flamegraph.html', '')
 
-    const jsonFile = fs.readdirSync(dir).find(name => name.match(/\.filtered\.json$/))
-    fs.readFile(jsonFile, function (err, content) {
-      if (err) cleanup(err, dir)
+      // Ensure outputs are created
+      t.ok(htmlFile.includes('flamegraph.html'))
+      t.ok(fs.existsSync(htmlFile))
+      t.ok(fs.statSync(htmlFile).size > 10000)
 
+      jsonFile = fs.readdirSync(dir).find(name => name.match(/\.filtered\.json$/))
+
+      t.end()
+    })
+    return path.resolve(dir, jsonFile)
+  }
+
+  function testJsonContents (content) {
+    outerTest.test('Test 0x json contents are classified as expected', function (t) {
       const jsonArray = JSON.parse(content).code
 
-      const appFromOutput = jsonArray(item => item.name.match(/^.appFunction/))
+      const appFromOutput = jsonArray.find(item => item.name.match(/^appOuterFunc /))
       t.ok(appFromOutput)
       t.equal(getType(appFromOutput), 'app')
 
-      const depFromOutput = jsonArray(item => item.name.match(/node_modules[/\\]debounce/))
+      const depFromOutput = jsonArray.find(item => item.name.match(/node_modules[/\\]debounce/))
       t.ok(depFromOutput)
-      t.equal(getType(appFromOutput), 'dep')
+      t.equal(getType(depFromOutput), 'deps')
 
-      const regexFromOutput = jsonArray(item => item.name.includes(regexWindows))
+      // RegExp parser may encode non-ASCII characters - but should still be correctly classified
+      const regexFromOutput = jsonArray.find(item => item.kind === 'RegExp' && item.name.match(/^\/D:\\Documents and Settings/))
       t.ok(regexFromOutput)
       t.equal(getType(regexFromOutput), 'regexp')
 
-      const evalFromOutput = jsonArray(item => item.name.includes(ridiculousValidMethodName))
+      // Some non-ASCII characters get be garbled e.g. æ => ÿffffe6 on Windows - but should still be correctly classified
+      const evalFromOutput = jsonArray.find(item => item.type === 'JS' && item.name.match(/^\/Do \( \/home/))
       t.ok(evalFromOutput)
       t.equal(getType(evalFromOutput), 'native')
+      t.ok(getProcessedName(evalFromOutput).includes('[eval]'))
+
+      t.end()
     })
-  })
+  }
+
+  function cleanup () {
+    outerTest.test('Test cleanup works as expected', function (t) {
+      t.ok(fs.existsSync(dir))
+      rimraf.sync(dir)
+      t.notOk(fs.existsSync(dir))
+
+      t.end()
+    })
+  }
 })

@@ -5,44 +5,45 @@ const {
   regexWindows,
   stringPosix,
   ridiculousValidMethodName
-} = require('.type-edge-cases.js')
+} = require('../util/type-edge-cases.js')
 
 const {
   evalSafeString,
-  isRegexDefEvalSafe
-} = require('./ensure-eval-safe.js')
+  evalSafeRegexDef
+} = require('../util/ensure-eval-safe.js')
 
 const debounce = require('debounce')
-const assert = require('assert')
 
-assert(isRegexDefEvalSafe(regexWindows))
-
-function appFunc () {
-  const reps = 500
+function appOuterFunc () {
+  const reps = 5000
 
   // Make the regex work hard so it definitely appears in the output
   const regexStringTarget = `${allTags} ${regexWindows} ${stringPosix}`.repeat(reps)
 
   const evalCode = `
-    function appFunction () {
-      const regex = new RegExp(${evalSafeString(regexWindows)})
-      const obj = {
-        "inline:this": function (input) {
-          return input
-        }
-        ${evalSafeString(ridiculousValidMethodName)}: function () {
-          return ${evalSafeString(regexStringTarget)}.replace(regex, ${evalSafeString(stringPosix)})
-        }
+    const regex = new RegExp(${evalSafeRegexDef(regexWindows)})
+    const obj = {
+      ${evalSafeString(ridiculousValidMethodName)}: function () {
+        return ${evalSafeString(regexStringTarget)}.replace(regex, ${evalSafeString(stringPosix)})
       }
-      return obj["inline:this"](obj[${evalSafeString(ridiculousValidMethodName)}]())
     }
-    appFunction()
+
+    function appInnerFunc () {
+      return obj[${evalSafeString(ridiculousValidMethodName)}]()
+    }
+
+    appInnerFunc()
   `
 
-  for (let i = 0; i < reps; i++) {
+  function doEval (evalCode) {
     global.eval(evalCode)
+  }
+
+  for (let i = 0; i < reps; i++) {
+    doEval(evalCode)
   }
 }
 
 // This debounce wrapper is purely to get a simple stable 'deps' frame in the output
-debounce(appFunc)
+const debounceWrapper = debounce(appOuterFunc, 0, true)
+debounceWrapper()
