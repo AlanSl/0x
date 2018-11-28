@@ -43,8 +43,8 @@ const appUnix = '//unc_server/unc_share-bob/current_projects-bob/node_modules-bo
 const regexWindowsPaths = '/' + depsEsmWindows + ' ' + sharedLibWindows + ' ' + appWindows + ' ' + allTags + '/g'
 const stringPosixPaths = `${depsCommonUnix} ${sharedLibUnix} ${appUnix} ${allTags}`
 
-// Include a :\\ with \\ both before and after it, and \\u.... patterns which aren't unicode character codes
-const nonStringRegex = /[\/\\] \.js native \.mjs \\ \/ :\\ \/ \\ (\\\\server\\users\\u2fan\\node_modules\\|\/node_modules\/) \[eval].js:1:2/g
+// Contains \\ outside of complete paths, a :\\ with \\ both before and after it, and \\u.... patterns which aren't unicode character codes
+const nonPathRegex = '/[\/\\] \.js native \.mjs \\ \/ :\\ \/ \\ \\\\server (\\users\\u2fan\\node_modules\\|\/node_modules\/) \[eval].js:1:2/'
 
 const ridiculousValidMethodName = `/Do ( ${stringPosixPaths} ${depsEsmWindows} ${sharedLibWindows} )/`
 
@@ -52,7 +52,7 @@ module.exports = {
   allTags,
   regexWindowsPaths,
   stringPosixPaths,
-  nonStringRegex,
+  nonPathRegex,
   sharedLibUnix,
   sharedLibWindows,
   depsEsmWindows,

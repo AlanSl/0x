@@ -4,7 +4,7 @@ const {
   allTags,
   regexWindowsPaths,
   stringPosixPaths,
-  nonStringRegex,
+  nonPathRegex,
   ridiculousValidMethodName
 } = require('../util/type-edge-cases.js')
 
@@ -43,7 +43,7 @@ function appOuterFunc () {
 
   function doEval () {
     global.eval(evalCode)
-    evalCode.replace(nonStringRegex, stringPosixPaths)
+    evalCode.replace(new RegExp(nonPathRegex), stringPosixPaths)
   }
 }
 

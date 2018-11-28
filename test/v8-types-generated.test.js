@@ -15,7 +15,7 @@ const {
   getType
 } = require('./util/classify-frames.js')
 
-const regexStringified = require('./util/type-edge-cases.js').nonStringRegex.toString()
+const { nonPathRegex } = require('./util/type-edge-cases.js')
 
 // Be careful if increasing this test file's run time (currently ~5-12s).
 // Tap may intermittently fail with "no plan" or, if plans are added,
@@ -65,7 +65,7 @@ test('Generate profile and test its output', function (outerTest) {
 
     // RegExp processing may encode non-ASCII characters - but should still be correctly classified
     const regexPaths = jsonArray.find(item => findRegex(item, /^\/D:\\Documents and Settings/, 'Documents and Settings'))
-    const regexNonString = jsonArray.find(item => findRegex(item, regexStringified, 'js native '))
+    const regexNonString = jsonArray.find(item => findRegex(item, nonPathRegex, 'js native '))
 
     // Some non-ASCII characters get be garbled e.g. æ => ÿffffe6 on Windows - but should still be correctly classified
     const evalLongMethod = jsonArray.find(item => item.type === 'JS' && item.name.match(/^\/Do \( \/home/))
