@@ -13,7 +13,7 @@ const {
   evalSafeRegexDef
 } = require('../util/ensure-eval-safe.js')
 
-const doFunc = require('./ǂñ¡κهÐΞ/unicode-in-path.js')
+const doFunc = require('./μИاκهよΞ/unicode-in-path.js')
 
 const debounce = require('debounce')
 

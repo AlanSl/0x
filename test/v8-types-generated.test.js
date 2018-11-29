@@ -61,6 +61,8 @@ test('Generate profile and test its output', function (outerTest) {
     const jsonArray = JSON.parse(content).code
 
     const app = jsonArray.find(item => item.name.match(/^appOuterFunc /))
+    const appUnicode = jsonArray.find(item => item.name.match(/^doFunc.+μИاκهよΞ[\/\\]unicode-in-path\.js/))
+
     const deps = jsonArray.find(item => item.name.match(/node_modules[/\\]debounce/))
 
     // We get into multi-level escape character hell if we try to escape then match against the original strings
@@ -76,6 +78,9 @@ test('Generate profile and test its output', function (outerTest) {
     outerTest.test('Test 0x json contents are classified as expected', function (t) {
       t.ok(app)
       t.equal(getType(app), 'app')
+
+      t.ok(appUnicode)
+      t.equal(getType(appUnicode), 'app')
 
       t.ok(deps)
       t.equal(getType(deps), 'deps')
