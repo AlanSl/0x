@@ -63,13 +63,15 @@ test('Generate profile and test its output', function (outerTest) {
     const app = jsonArray.find(item => item.name.match(/^appOuterFunc /))
     const deps = jsonArray.find(item => item.name.match(/node_modules[/\\]debounce/))
 
-    // RegExp processing may encode non-ASCII characters - but should still be correctly classified
-    const regexPaths = jsonArray.find(item => findRegex(item, /^\/D:\\Documents and Settings/, 'Documents and Settings'))
-    const regexNonString = jsonArray.find(item => findRegex(item, nonPathRegex, 'js native '))
+    // We get into multi-level escape character hell if we try to escape then match against the original strings
+    // Duplicate stubs long enough to check it's a) correctly classified, and b) unicode etc isn't mangled
+    const matchRegexPaths = /^\/D:\u005cDocuments and Settings\u005cАлександра ǂǐ-sì\u005cinternal\u005capp native internal\u005cnode_modules\u005csome-module\u005cesm.mjs:1:1/
+    const regexPaths = jsonArray.find(item => item.name.match(matchRegexPaths))
+    const matchRegexNonPath = /^\/\[\/\u005c] \.js native \.mjs \u005c \/ :\u005c \/ \u005c \u005c\u005cserver \(\u005cusers\u005cu2fan\u005cnode_modules\u005c\|\/node_modules\/\) \[eval].js:1:2/
+    const regexNonPath = jsonArray.find(item => item.name.match(matchRegexNonPath))
 
-    // Some non-ASCII characters get be garbled e.g. æ => ÿffffe6 on Windows - but should still be correctly classified
+    const evalSimpleFunction = jsonArray.find(item => item.type === 'JS' && item.name.match(/^evalInnerFunc /))
     const evalLongMethod = jsonArray.find(item => item.type === 'JS' && item.name.match(/^\/Do \( \/home/))
-    const evalSimpleFunction = jsonArray.find(item => item.type === 'JS' && item.name.match(/^appInnerFunc /))
 
     outerTest.test('Test 0x json contents are classified as expected', function (t) {
       t.ok(app)
@@ -81,16 +83,16 @@ test('Generate profile and test its output', function (outerTest) {
       t.ok(regexPaths)
       t.equal(getType(regexPaths), 'regexp')
 
-      t.ok(regexNonString)
-      t.equal(getType(regexNonString), 'regexp')
-
-      t.ok(evalFromOutput)
-      t.equal(getType(evalFromOutput), 'native')
-      t.ok(getProcessedName(evalFromOutput).includes('[eval]'))
+      t.ok(regexNonPath)
+      t.equal(getType(regexNonPath), 'regexp')
 
       t.ok(evalSimpleFunction)
       t.equal(getType(evalSimpleFunction), 'native')
       t.ok(getProcessedName(evalSimpleFunction).includes('[eval]'))
+
+      t.ok(evalLongMethod)
+      t.equal(getType(evalLongMethod), 'native')
+      t.ok(getProcessedName(evalLongMethod).includes('[eval]'))
 
       t.end()
     })
@@ -106,15 +108,3 @@ test('Generate profile and test its output', function (outerTest) {
     })
   }
 })
-
-function findRegex (item, target, targetStub) {
-  if (!item.type === 'CODE' && item.kind === 'RegExp') return false
-  if (item.name.match(target)) return true
-
-  // On Node 8 the regex def may be unicode-escaped, doubling the \\
-  // Check this could be a match before unescaping
-  if (!item.name.includes(targetStub)) return false
-  console.log('item.name-------', item.name)
-  if (unescape(JSON.parse(`"${item.name}"`))) return true
-  return false
-}
