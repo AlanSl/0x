@@ -12,7 +12,7 @@ const {
   evalSafeRegexDef
 } = require('../util/ensure-eval-safe.js')
 
-const doFunc = require('./μИاκهよΞ/unicode-in-path.js')
+const doFunc = require('./μИاκهよΞ/Æ§Çìî ëxtêñdéÐ ╠╣║/escape-chars-in-path.js')
 
 const debounce = require('debounce')
 
@@ -33,14 +33,14 @@ function appOuterFunc () {
   const obj = {
     // Method names defined from a variable show up as (anonymous)
     // but crazy method names written in as strings still show up in output
-    'method: \\μИاκهよΞ\\ [CODE:RegExp] / native / [SHARED_LIB]': function () {
+    'method: \\μИاκهよΞ\\Æ§Çìî [CODE:RegExp] / native / [SHARED_LIB]': function () {
       global.eval(evalCode) // eslint-disable-line
       regexStringTarget.repeat(reps).replace(new RegExp(nonPathRegex), stringPosixPaths)
     }
   }
 
   const doEval = function () {
-    obj['method: \\μИاκهよΞ\\ [CODE:RegExp] / native / [SHARED_LIB]']()
+    obj['method: \\μИاκهよΞ\\Æ§Çìî [CODE:RegExp] / native / [SHARED_LIB]']()
   }
 
   for (let i = 0; i < reps; i++) {

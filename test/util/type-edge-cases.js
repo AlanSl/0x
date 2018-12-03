@@ -33,8 +33,8 @@ const depsEsmWindows = 'D:\\Documents and Settings\\Александра ǂǐ-s
 const nodeConfDubai = unescape('%D9%86%D9%88%D8%AF%20%D9%83%D9%88%D9%86%D9%81%20%D8%AF%D8%A8%D9%8A')
 const depsCommonUnix = `/home/Łukasz W̥̙̯. O'Reilly/projects/${nodeConfDubai}/internal/app native internal/node_modules/module/common.js:111:111`
 
-// Includes 'node_modules\\', but isn't a dep
-const appWindows = '\\\\my_unc_server\\my_unc_shares\\my_projects\\my_node_modules\\my_module\\index.js:1234567890:1234567890'
+// Includes 'node_modules\\', but isn't a dep; plus non-English ASCII characters mid-name and immediately after \\
+const appWindows = '\\\\my_unc_server\\my_unc_shares\\ælfgyva\\my_projects\\my_node_modules\\nodeconf_españa\\index.js:1234567890:1234567890'
 
 // Includes '/node_modules', but isn't a dep
 const appUnix = '//unc_server/unc_share-bob/current_projects-bob/node_modules-bob/bobule/index.js:1234567890:1234567890'

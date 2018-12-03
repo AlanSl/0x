@@ -98,21 +98,31 @@ test('Generate profile and test its output', async function (t) {
     t.end()
   }
   const onError = function (err) {
+    console.log('ON ERROR_______')
     cleanup()
     throw err
   }
+
+  console.log('Before 0X', '_______')
 
   const htmlLink = await zeroX({
     argv: [ resolve(__dirname, './fixture/do-eval.js') ],
     workingDir: resolve('./')
   }).catch(onError)
 
+  console.log('After 0X', htmlLink)
+
   const htmlFile = htmlLink.replace(/^file:\/\//, '')
 
   // Test 0x output exists as expected
+  console.log(0, '_______')
   t.ok(htmlFile.includes('flamegraph.html'))
+
+  console.log(1, '>>>>>>>>', htmlFile)
   t.ok(fs.existsSync(htmlFile))
+  console.log(2, '_______')
   t.ok(fs.statSync(htmlFile).size > 10000)
+  console.log(3, '_______')
 
   dir = htmlFile.replace('flamegraph.html', '')
   const jsonFile = fs.readdirSync(dir).find(name => name.match(/\.json$/))
@@ -122,8 +132,8 @@ test('Generate profile and test its output', async function (t) {
   const jsonArray = JSON.parse(content).code
 
   const app = jsonArray.find(item => item.name.match(/^appOuterFunc /))
-  const appUnicode = jsonArray.find(item => item.name.match(/^doFunc.+μИاκهよΞ[/\\]unicode-in-path\.js/))
-  const appLongMethod = jsonArray.find(item => item.type === 'JS' && item.name.match(/^method: \\μИاκهよΞ\\ \[CODE:RegExp] \/ native \/ \[SHARED_LIB]/))
+  const appUnicode = jsonArray.find(item => item.name.match(/^doFunc.+μИاκهよΞ[/\\]Æ§Çìî ëxtêñdéÐ ╠╣║[/\\]escape-chars-in-path\.js/))
+  const appLongMethod = jsonArray.find(item => item.type === 'JS' && item.name.match(/^method: \\μИاκهよΞ\\Æ§Çìî \[CODE:RegExp] \/ native \/ \[SHARED_LIB]/))
 
   const deps = jsonArray.find(item => item.name.match(/node_modules[/\\]debounce/))
 
